@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "github.com/emorenkov/scorehub/pkg/notification/proto;notificationpb";
+
+message Notification {
+  int64 id = 1;
+  int64 user_id = 2;
+  string message = 3;
+  string created_at = 4;
+}
+
+// Optional: topic-based, so no service RPCs are strictly required here.
+// service NotificationService {}
