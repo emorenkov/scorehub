@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/emorenkov/scorehub/pkg/user/model"
+	"github.com/emorenkov/scorehub/pkg/common/models"
 	"gorm.io/gorm"
 )
 

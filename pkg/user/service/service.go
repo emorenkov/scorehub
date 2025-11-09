@@ -5,8 +5,17 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/emorenkov/scorehub/pkg/user/model"
+	"github.com/emorenkov/scorehub/pkg/common/models"
 )
+
+// Service describes the user business logic exposed to transports.
+type Service interface {
+	Create(ctx context.Context, name, email string) (*models.User, error)
+	Get(ctx context.Context, id int64) (*models.User, error)
+	List(ctx context.Context) ([]models.User, error)
+	Update(ctx context.Context, id int64, name, email string) (*models.User, error)
+	Delete(ctx context.Context, id int64) error
+}
 
 type Repository interface {
 	Create(ctx context.Context, u *models.User) error
@@ -21,7 +30,7 @@ type service struct {
 	repo Repository
 }
 
-func NewService(repo Repository) *service {
+func NewService(repo Repository) Service {
 	return &service{repo: repo}
 }
 
