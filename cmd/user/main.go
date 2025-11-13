@@ -12,6 +12,8 @@ import (
 	"github.com/emorenkov/scorehub/pkg/common/db"
 	logpkg "github.com/emorenkov/scorehub/pkg/common/logger"
 	usercfg "github.com/emorenkov/scorehub/pkg/user/config"
+	grpcserver "github.com/emorenkov/scorehub/pkg/user/grpc"
+	userpb "github.com/emorenkov/scorehub/pkg/user/models/proto"
 	"github.com/emorenkov/scorehub/pkg/user/repository"
 	"github.com/emorenkov/scorehub/pkg/user/rest"
 	"github.com/emorenkov/scorehub/pkg/user/service"
@@ -74,6 +76,7 @@ func newApp(cfg *usercfg.UserConfig) (*app, error) {
 
 	restServer := rest.NewServer(cfg, svc, logpkg.Log)
 	grpcServer := grpc.NewServer()
+	userpb.RegisterUserServiceServer(grpcServer, grpcserver.NewServer(svc))
 	grpcAddr := ":" + cfg.GRPCPort
 	lis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
