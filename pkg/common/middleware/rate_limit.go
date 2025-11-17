@@ -2,8 +2,10 @@ package middleware
 
 import (
 	"context"
+	"net/http"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -33,12 +35,11 @@ func NewRateLimiter(client *redis.Client, rps, burst int) *RateLimiter {
 }
 
 // Allow increments the request counter for the key and tells whether the call is allowed.
-func (rl *RateLimiter) Allow(key string) bool {
+func (rl *RateLimiter) Allow(ctx context.Context, key string) bool {
 	if rl == nil || rl.client == nil {
 		return true
 	}
 
-	ctx := context.Background()
 	cacheKey := rl.prefix + ":" + key
 	pipe := rl.client.TxPipeline()
 	incr := pipe.Incr(ctx, cacheKey)
@@ -48,4 +49,16 @@ func (rl *RateLimiter) Allow(key string) bool {
 		return true
 	}
 	return incr.Val() <= int64(rl.limit)
+}
+
+// EchoRateLimit returns Echo middleware that applies the provided rate limiter keyed by client IP.
+func EchoRateLimit(rl *RateLimiter) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if rl == nil || rl.Allow(c.Request().Context(), c.RealIP()) {
+				return next(c)
+			}
+			return c.NoContent(http.StatusTooManyRequests)
+		}
+	}
 }

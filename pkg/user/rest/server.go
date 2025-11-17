@@ -2,74 +2,72 @@ package rest
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/emorenkov/scorehub/pkg/common/middleware"
 	"github.com/emorenkov/scorehub/pkg/user/config"
 	"github.com/emorenkov/scorehub/pkg/user/service"
-	"github.com/fasthttp/router"
+	"github.com/labstack/echo/v4"
+	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/redis/go-redis/v9"
-	"github.com/valyala/fasthttp"
 	"go.uber.org/zap"
 )
 
 type Server struct {
-	cfg        *config.UserConfig
-	svc        service.Service
-	log        *zap.Logger
-	router     *router.Router
-	httpServer *fasthttp.Server
-	limiter    *middleware.RateLimiter
-	redis      *redis.Client
+	cfg     *config.UserConfig
+	svc     service.Service
+	log     *zap.Logger
+	e       *echo.Echo
+	redis   *redis.Client
+	limiter *middleware.RateLimiter
 }
 
 func NewServer(cfg *config.UserConfig, svc service.Service, log *zap.Logger) *Server {
-	r := router.New()
+	e := echo.New()
+	e.HideBanner = true
+	e.HidePort = true
+
+	redisClient := newRedisClient(cfg)
+	limiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS, cfg.RateLimitBurst)
+
 	s := &Server{
 		cfg:     cfg,
 		svc:     svc,
 		log:     log,
-		router:  r,
-		redis:   newRedisClient(cfg),
-		limiter: nil, // set below
-		httpServer: &fasthttp.Server{
-			Handler: nil, // set below after wrapping
-		},
+		e:       e,
+		redis:   redisClient,
+		limiter: limiter,
 	}
-	s.limiter = middleware.NewRateLimiter(s.redis, cfg.RateLimitRPS, cfg.RateLimitBurst)
-	s.httpServer.Handler = s.wrap(r.Handler)
+
+	e.Use(echoMiddleware.Recover())
+	e.Use(echoMiddleware.Logger())
+	if limiter != nil {
+		e.Use(middleware.EchoRateLimit(limiter))
+	}
+
 	s.registerRoutes()
 	return s
 }
 
-func (s *Server) wrap(next fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return func(ctx *fasthttp.RequestCtx) {
-		if !s.authenticate(ctx) {
-			return
-		}
-		if !s.rateLimit(ctx) {
-			return
-		}
-		next(ctx)
-	}
-}
-
 func (s *Server) registerRoutes() {
-	s.router.GET("/_health", func(ctx *fasthttp.RequestCtx) {
-		ctx.SetStatusCode(fasthttp.StatusOK)
+	s.e.GET("/_health", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
 	})
 
-	api := s.router.Group("/api/v1")
+	api := s.e.Group("/api/v1")
 	api.POST("/users", s.createUser)
-	api.GET("/users/{id}", s.getUser)
-	api.GET("/users", s.listUsers)
-	api.PUT("/users/{id}", s.updateUser)
-	api.DELETE("/users/{id}", s.deleteUser)
+
+	protected := api.Group("", s.keyAuthMiddleware)
+	protected.GET("/users/:id", s.getUser)
+	protected.GET("/users", s.listUsers)
+	protected.PUT("/users/:id", s.updateUser)
+	protected.DELETE("/users/:id", s.deleteUser)
 }
 
 func (s *Server) Serve() error {
 	addr := ":" + s.cfg.HTTPPort
 	s.log.Info("starting REST server", zap.String("addr", addr))
-	return s.httpServer.ListenAndServe(addr)
+	return s.e.Start(addr)
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {
@@ -77,26 +75,19 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	if s.redis != nil {
 		_ = s.redis.Close()
 	}
-	return s.httpServer.ShutdownWithContext(ctx)
+	return s.e.Shutdown(ctx)
 }
 
-func (s *Server) authenticate(ctx *fasthttp.RequestCtx) bool {
+func (s *Server) keyAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	if s.cfg.APIKey == "" {
-		return true
+		return next
 	}
-	if string(ctx.Request.Header.Peek("X-API-Key")) == s.cfg.APIKey {
-		return true
+	return func(c echo.Context) error {
+		if c.Request().Header.Get("X-API-Key") != s.cfg.APIKey {
+			return c.NoContent(http.StatusUnauthorized)
+		}
+		return next(c)
 	}
-	ctx.SetStatusCode(fasthttp.StatusUnauthorized)
-	return false
-}
-
-func (s *Server) rateLimit(ctx *fasthttp.RequestCtx) bool {
-	if s.limiter.Allow(ctx.RemoteIP().String()) {
-		return true
-	}
-	ctx.SetStatusCode(fasthttp.StatusTooManyRequests)
-	return false
 }
 
 func newRedisClient(cfg *config.UserConfig) *redis.Client {

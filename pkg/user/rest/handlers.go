@@ -2,95 +2,91 @@ package rest
 
 import (
 	"encoding/json"
+	"net/http"
 	"strconv"
 
 	apperrors "github.com/emorenkov/scorehub/pkg/common/errors"
 	"github.com/emorenkov/scorehub/pkg/common/models"
-	"github.com/valyala/fasthttp"
+	"github.com/labstack/echo/v4"
 )
 
-func (s *Server) createUser(ctx *fasthttp.RequestCtx) {
+func (s *Server) createUser(c echo.Context) error {
 	var req createUserRequest
-	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid json"})
-		return
+	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid json"})
 	}
-	u, err := s.svc.Create(ctx, req.Name, req.Email)
+	u, err := s.svc.Create(c.Request().Context(), req.Name, req.Email)
 	if err != nil {
-		if !writeServiceError(ctx, err) {
-			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if handled := writeServiceError(c, err); handled {
+			return nil
 		}
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	writeJSON(ctx, fasthttp.StatusCreated, toDTO(u))
+	return c.JSON(http.StatusCreated, toDTO(u))
 }
 
-func (s *Server) getUser(ctx *fasthttp.RequestCtx) {
-	id, ok := parseID(ctx)
+func (s *Server) getUser(c echo.Context) error {
+	id, ok := parseID(c)
 	if !ok {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid id"})
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
-	u, err := s.svc.Get(ctx, id)
+	u, err := s.svc.Get(c.Request().Context(), id)
 	if err != nil {
-		if !writeServiceError(ctx, err) {
-			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if handled := writeServiceError(c, err); handled {
+			return nil
 		}
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	writeJSON(ctx, fasthttp.StatusOK, toDTO(u))
+	return c.JSON(http.StatusOK, toDTO(u))
 }
 
-func (s *Server) listUsers(ctx *fasthttp.RequestCtx) {
-	users, err := s.svc.List(ctx)
+func (s *Server) listUsers(c echo.Context) error {
+	users, err := s.svc.List(c.Request().Context())
 	if err != nil {
-		if !writeServiceError(ctx, err) {
-			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if handled := writeServiceError(c, err); handled {
+			return nil
 		}
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	resp := make([]userDTO, 0, len(users))
 	for i := range users {
 		resp = append(resp, toDTO(&users[i]))
 	}
-	writeJSON(ctx, fasthttp.StatusOK, resp)
+	return c.JSON(http.StatusOK, resp)
 }
 
-func (s *Server) updateUser(ctx *fasthttp.RequestCtx) {
-	id, ok := parseID(ctx)
+func (s *Server) updateUser(c echo.Context) error {
+	id, ok := parseID(c)
 	if !ok {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid id"})
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 	var req updateUserRequest
-	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid json"})
-		return
+	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid json"})
 	}
 
-	u, err := s.svc.Update(ctx, id, req.Name, req.Email)
+	u, err := s.svc.Update(c.Request().Context(), id, req.Name, req.Email)
 	if err != nil {
-		if !writeServiceError(ctx, err) {
-			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if handled := writeServiceError(c, err); handled {
+			return nil
 		}
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	writeJSON(ctx, fasthttp.StatusOK, toDTO(u))
+	return c.JSON(http.StatusOK, toDTO(u))
 }
 
-func (s *Server) deleteUser(ctx *fasthttp.RequestCtx) {
-	id, ok := parseID(ctx)
+func (s *Server) deleteUser(c echo.Context) error {
+	id, ok := parseID(c)
 	if !ok {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid id"})
-		return
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
-	if err := s.svc.Delete(ctx, id); err != nil {
-		if !writeServiceError(ctx, err) {
-			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if err := s.svc.Delete(c.Request().Context(), id); err != nil {
+		if handled := writeServiceError(c, err); handled {
+			return nil
 		}
-		return
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	ctx.SetStatusCode(fasthttp.StatusNoContent)
+	return c.NoContent(http.StatusNoContent)
 }
 
 type createUserRequest struct {
@@ -125,30 +121,21 @@ func toDTO(u *models.User) userDTO {
 	}
 }
 
-func parseID(ctx *fasthttp.RequestCtx) (int64, bool) {
-	idStr := ctx.UserValue("id")
-	if idStr == nil {
-		return 0, false
-	}
-	id, err := strconv.ParseInt(idStr.(string), 10, 64)
+func parseID(c echo.Context) (int64, bool) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		return 0, false
 	}
 	return id, true
 }
 
-func writeJSON(ctx *fasthttp.RequestCtx, status int, v any) {
-	ctx.Response.Header.Set("Content-Type", "application/json")
-	ctx.SetStatusCode(status)
-	_ = json.NewEncoder(ctx).Encode(v)
-}
-
-func writeServiceError(ctx *fasthttp.RequestCtx, err error) bool {
+func writeServiceError(c echo.Context, err error) bool {
 	if err == nil {
 		return false
 	}
 	if se, ok := apperrors.AsStatusError(err); ok {
-		writeJSON(ctx, se.Status, map[string]string{"error": se.Message})
+		_ = c.JSON(se.Status, map[string]string{"error": se.Message})
 		return true
 	}
 	return false
