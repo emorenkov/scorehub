@@ -14,6 +14,12 @@ type UserConfig struct {
 	ServiceName string
 	// For grpc-gateway to reach the gRPC server; default is local user-service gRPC port
 	UserServiceAddr string
+	APIKey          string
+	RateLimitRPS    int
+	RateLimitBurst  int
+	RedisAddr       string
+	RedisPassword   string
+	RedisDB         int
 	DbConfig        *db.PostgresConfig
 }
 
@@ -31,6 +37,12 @@ func Load() *UserConfig {
 		GatewayPort:     getEnv("GATEWAY_PORT", "8081"),
 		ServiceName:     getEnv("SERVICE_NAME", "user-service"),
 		UserServiceAddr: getEnv("USER_SERVICE_ADDR", "localhost:50051"),
+		APIKey:          getEnv("API_KEY", ""),
+		RateLimitRPS:    getEnvAsInt("RATE_LIMIT_RPS", 10),
+		RateLimitBurst:  getEnvAsInt("RATE_LIMIT_BURST", 20),
+		RedisAddr:       getEnv("REDIS_ADDR", "localhost:6379"),
+		RedisPassword:   getEnv("REDIS_PASSWORD", ""),
+		RedisDB:         getEnvAsInt("REDIS_DB", 0),
 	}
 }
 

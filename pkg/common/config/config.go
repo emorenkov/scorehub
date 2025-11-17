@@ -26,7 +26,7 @@ func Load() *Config {
 	return &Config{
 		PostgresHost:       getEnv("POSTGRES_HOST", "localhost"),
 		PostgresPort:       getEnvAsInt("POSTGRES_PORT", 5432),
-		PostgresUser:       getEnv("POSTGRES_USER", "scorehub_user"),
+		PostgresUser:       getEnv("POSTGRES_USER", "scorehub"),
 		PostgresPassword:   getEnv("POSTGRES_PASSWORD", "postgres"),
 		PostgresDB:         getEnv("POSTGRES_DB", "scorehub"),
 		KafkaBrokers:       []string{getEnv("KAFKA_BROKERS", "localhost:9092")},

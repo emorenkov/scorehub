@@ -3,14 +3,15 @@ package grpcserver
 import (
 	"context"
 	"errors"
+	"net/http"
 	"time"
 
+	apperrors "github.com/emorenkov/scorehub/pkg/common/errors"
 	"github.com/emorenkov/scorehub/pkg/common/models"
 	userpb "github.com/emorenkov/scorehub/pkg/user/models/proto"
 	"github.com/emorenkov/scorehub/pkg/user/service"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gorm.io/gorm"
 )
 
 // Server implements the generated gRPC interface and forwards calls to the domain service.
@@ -80,10 +81,16 @@ func toProtoUser(u *models.User) *userpb.User {
 }
 
 func mapError(err error) error {
-	switch {
-	case errors.Is(err, gorm.ErrRecordNotFound):
-		return status.Error(codes.NotFound, "user not found")
-	default:
-		return status.Errorf(codes.Internal, err.Error())
+	var se *apperrors.StatusError
+	if errors.As(err, &se) {
+		switch se.Status {
+		case http.StatusBadRequest:
+			return status.Error(codes.InvalidArgument, se.Message)
+		case http.StatusNotFound:
+			return status.Error(codes.NotFound, se.Message)
+		default:
+			return status.Error(codes.Internal, se.Error())
+		}
 	}
+	return status.Error(codes.Internal, err.Error())
 }

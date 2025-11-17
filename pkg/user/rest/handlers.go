@@ -1,10 +1,10 @@
 package rest
 
 import (
-	"context"
 	"encoding/json"
 	"strconv"
 
+	apperrors "github.com/emorenkov/scorehub/pkg/common/errors"
 	"github.com/emorenkov/scorehub/pkg/common/models"
 	"github.com/valyala/fasthttp"
 )
@@ -15,9 +15,11 @@ func (s *Server) createUser(ctx *fasthttp.RequestCtx) {
 		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
-	u, err := s.svc.Create(context.Background(), req.Name, req.Email)
+	u, err := s.svc.Create(ctx, req.Name, req.Email)
 	if err != nil {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": err.Error()})
+		if !writeServiceError(ctx, err) {
+			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 		return
 	}
 	writeJSON(ctx, fasthttp.StatusCreated, toDTO(u))
@@ -29,18 +31,22 @@ func (s *Server) getUser(ctx *fasthttp.RequestCtx) {
 		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid id"})
 		return
 	}
-	u, err := s.svc.Get(context.Background(), id)
+	u, err := s.svc.Get(ctx, id)
 	if err != nil {
-		writeJSON(ctx, fasthttp.StatusNotFound, map[string]string{"error": err.Error()})
+		if !writeServiceError(ctx, err) {
+			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 		return
 	}
 	writeJSON(ctx, fasthttp.StatusOK, toDTO(u))
 }
 
 func (s *Server) listUsers(ctx *fasthttp.RequestCtx) {
-	users, err := s.svc.List(context.Background())
+	users, err := s.svc.List(ctx)
 	if err != nil {
-		writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if !writeServiceError(ctx, err) {
+			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 		return
 	}
 	resp := make([]userDTO, 0, len(users))
@@ -62,9 +68,11 @@ func (s *Server) updateUser(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	u, err := s.svc.Update(context.Background(), id, req.Name, req.Email)
+	u, err := s.svc.Update(ctx, id, req.Name, req.Email)
 	if err != nil {
-		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": err.Error()})
+		if !writeServiceError(ctx, err) {
+			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 		return
 	}
 	writeJSON(ctx, fasthttp.StatusOK, toDTO(u))
@@ -76,8 +84,10 @@ func (s *Server) deleteUser(ctx *fasthttp.RequestCtx) {
 		writeJSON(ctx, fasthttp.StatusBadRequest, map[string]string{"error": "invalid id"})
 		return
 	}
-	if err := s.svc.Delete(context.Background(), id); err != nil {
-		writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if err := s.svc.Delete(ctx, id); err != nil {
+		if !writeServiceError(ctx, err) {
+			writeJSON(ctx, fasthttp.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 		return
 	}
 	ctx.SetStatusCode(fasthttp.StatusNoContent)
@@ -131,4 +141,15 @@ func writeJSON(ctx *fasthttp.RequestCtx, status int, v any) {
 	ctx.Response.Header.Set("Content-Type", "application/json")
 	ctx.SetStatusCode(status)
 	_ = json.NewEncoder(ctx).Encode(v)
+}
+
+func writeServiceError(ctx *fasthttp.RequestCtx, err error) bool {
+	if err == nil {
+		return false
+	}
+	if se, ok := apperrors.AsStatusError(err); ok {
+		writeJSON(ctx, se.Status, map[string]string{"error": se.Message})
+		return true
+	}
+	return false
 }

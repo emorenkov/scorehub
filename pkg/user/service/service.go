@@ -3,9 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
+	apperrors "github.com/emorenkov/scorehub/pkg/common/errors"
 	"github.com/emorenkov/scorehub/pkg/common/models"
+	"gorm.io/gorm"
 )
 
 // Service describes the user business logic exposed to transports.
@@ -38,27 +41,41 @@ func (s *service) Create(ctx context.Context, name, email string) (*models.User,
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(strings.ToLower(email))
 	if name == "" || email == "" {
-		return nil, errors.New("name and email are required")
+		return nil, apperrors.NewStatusError(http.StatusBadRequest, "name and email are required")
 	}
 	u := &models.User{Name: name, Email: email}
 	if err := s.repo.Create(ctx, u); err != nil {
-		return nil, err
+		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "create user")
 	}
 	return u, nil
 }
 
 func (s *service) Get(ctx context.Context, id int64) (*models.User, error) {
-	return s.repo.GetByID(ctx, id)
+	u, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.NewStatusError(http.StatusNotFound, "user not found")
+		}
+		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "get user")
+	}
+	return u, nil
 }
 
 func (s *service) List(ctx context.Context) ([]models.User, error) {
-	return s.repo.List(ctx)
+	users, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "list users")
+	}
+	return users, nil
 }
 
 func (s *service) Update(ctx context.Context, id int64, name, email string) (*models.User, error) {
 	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.NewStatusError(http.StatusNotFound, "user not found")
+		}
+		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "get user")
 	}
 	if name = strings.TrimSpace(name); name != "" {
 		u.Name = name
@@ -67,11 +84,21 @@ func (s *service) Update(ctx context.Context, id int64, name, email string) (*mo
 		u.Email = email
 	}
 	if err := s.repo.Update(ctx, u); err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.NewStatusError(http.StatusNotFound, "user not found")
+		}
+		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "update user")
 	}
 	return u, nil
 }
 
 func (s *service) Delete(ctx context.Context, id int64) error {
-	return s.repo.Delete(ctx, id)
+	err := s.repo.Delete(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.NewStatusError(http.StatusNotFound, "user not found")
+		}
+		return apperrors.WrapStatus(err, http.StatusInternalServerError, "delete user")
+	}
+	return nil
 }

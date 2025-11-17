@@ -22,7 +22,12 @@ func NewPostgresDB(cfg *PostgresConfig) (*gorm.DB, error) {
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DB,
 	)
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	dialector := postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true, // avoid cached prepared statements when schema changes at runtime
+	})
+
+	db, err := gorm.Open(dialector, &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Info),
 	})
 	if err != nil {
