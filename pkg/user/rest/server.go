@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/emorenkov/scorehub/pkg/common/middleware"
+	"github.com/emorenkov/scorehub/pkg/common/models"
 	"github.com/emorenkov/scorehub/pkg/user/config"
 	"github.com/emorenkov/scorehub/pkg/user/service"
 	"github.com/labstack/echo/v4"
@@ -27,8 +28,8 @@ func NewServer(cfg *config.UserConfig, svc service.Service, log *zap.Logger) *Se
 	e.HideBanner = true
 	e.HidePort = true
 
-	redisClient := newRedisClient(cfg)
-	limiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitRPS, cfg.RateLimitBurst)
+	redisClient := newRedisClient(cfg.RedisConfig)
+	limiter := middleware.NewRateLimiter(redisClient, cfg.RateLimitBurst)
 
 	s := &Server{
 		cfg:     cfg,
@@ -90,7 +91,7 @@ func (s *Server) keyAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func newRedisClient(cfg *config.UserConfig) *redis.Client {
+func newRedisClient(cfg *models.RedisConfig) *redis.Client {
 	if cfg.RedisAddr == "" {
 		return nil
 	}

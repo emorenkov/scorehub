@@ -4,7 +4,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/emorenkov/scorehub/pkg/common/db"
+	"github.com/emorenkov/scorehub/pkg/common/models"
 )
 
 type UserConfig struct {
@@ -17,21 +17,14 @@ type UserConfig struct {
 	APIKey          string
 	RateLimitRPS    int
 	RateLimitBurst  int
-	RedisAddr       string
-	RedisPassword   string
-	RedisDB         int
-	DbConfig        *db.PostgresConfig
+	RedisConfig     *models.RedisConfig
+	DbConfig        *models.PostgresConfig
 }
 
 func Load() *UserConfig {
 	return &UserConfig{
-		DbConfig: &db.PostgresConfig{
-			Host:     getEnv("POSTGRES_HOST", "localhost"),
-			Port:     getEnvAsInt("POSTGRES_PORT", 5432),
-			User:     getEnv("POSTGRES_USER", "scorehub_user"),
-			Password: getEnv("POSTGRES_PASSWORD", "postgres"),
-			DB:       getEnv("POSTGRES_DB", "scorehub"),
-		},
+		DbConfig:        models.LoadPostgresConfig(),
+		RedisConfig:     models.LoadRedisConfig(),
 		GRPCPort:        getEnv("GRPC_PORT", "50051"),
 		HTTPPort:        getEnv("HTTP_PORT", "8080"),
 		GatewayPort:     getEnv("GATEWAY_PORT", "8081"),
@@ -39,10 +32,6 @@ func Load() *UserConfig {
 		UserServiceAddr: getEnv("USER_SERVICE_ADDR", "localhost:50051"),
 		APIKey:          getEnv("API_KEY", ""),
 		RateLimitRPS:    getEnvAsInt("RATE_LIMIT_RPS", 10),
-		RateLimitBurst:  getEnvAsInt("RATE_LIMIT_BURST", 20),
-		RedisAddr:       getEnv("REDIS_ADDR", "localhost:6379"),
-		RedisPassword:   getEnv("REDIS_PASSWORD", ""),
-		RedisDB:         getEnvAsInt("REDIS_DB", 0),
 	}
 }
 

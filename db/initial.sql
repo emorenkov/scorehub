@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.users
 (
     id         BIGSERIAL PRIMARY KEY,
     name       VARCHAR(255) NOT NULL,
-    email      VARCHAR(255) NOT NULL UNIQUE,
+    email      VARCHAR(255) NOT NULL,
     score      BIGINT       NOT NULL DEFAULT 0,
     deleted    BOOLEAN      NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -36,6 +36,10 @@ CREATE TABLE IF NOT EXISTS public.users
 
 -- Helpful index if querying by score (e.g., leaderboards)
 CREATE INDEX IF NOT EXISTS idx_users_score ON public.users (score);
+
+-- Enforce unique emails only for non-deleted users
+ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_email_key;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON public.users (email) WHERE deleted = FALSE;
 
 -- Notifications table
 CREATE TABLE IF NOT EXISTS public.notifications

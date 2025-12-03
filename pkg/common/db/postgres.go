@@ -3,20 +3,13 @@ package db
 import (
 	"fmt"
 
+	"github.com/emorenkov/scorehub/pkg/common/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-type PostgresConfig struct {
-	Host     string
-	User     string
-	Password string
-	DB       string
-	Port     int
-}
-
-func NewPostgresDB(cfg *PostgresConfig) (*gorm.DB, error) {
+func NewPostgresDB(cfg *models.PostgresConfig) (*gorm.DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DB,

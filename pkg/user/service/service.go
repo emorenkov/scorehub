@@ -43,6 +43,13 @@ func (s *service) Create(ctx context.Context, name, email string) (*models.User,
 	if name == "" || email == "" {
 		return nil, apperrors.NewStatusError(http.StatusBadRequest, "name and email are required")
 	}
+
+	if _, err := s.repo.GetByEmail(ctx, email); err == nil {
+		return nil, apperrors.NewStatusError(http.StatusBadRequest, "email already exists")
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "check user email uniqueness")
+	}
+
 	u := &models.User{Name: name, Email: email}
 	if err := s.repo.Create(ctx, u); err != nil {
 		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "create user")
@@ -81,6 +88,15 @@ func (s *service) Update(ctx context.Context, id int64, name, email string) (*mo
 		u.Name = name
 	}
 	if email = strings.TrimSpace(strings.ToLower(email)); email != "" {
+		if email != u.Email {
+			existing, err := s.repo.GetByEmail(ctx, email)
+			if err == nil && existing.ID != u.ID {
+				return nil, apperrors.NewStatusError(http.StatusBadRequest, "email already exists")
+			}
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "check user email uniqueness")
+			}
+		}
 		u.Email = email
 	}
 	if err := s.repo.Update(ctx, u); err != nil {

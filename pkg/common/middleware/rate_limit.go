@@ -18,8 +18,7 @@ type RateLimiter struct {
 }
 
 // NewRateLimiter constructs a Redis-backed limiter with per-window limit (uses 1s window).
-func NewRateLimiter(client *redis.Client, rps, burst int) *RateLimiter {
-	limit := burst
+func NewRateLimiter(client *redis.Client, limit int) *RateLimiter {
 	if limit <= 0 {
 		limit = 1
 	}
