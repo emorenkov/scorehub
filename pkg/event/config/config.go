@@ -8,18 +8,20 @@ import (
 type Config struct {
 	ServiceName      string
 	GRPCPort         string
+	HTTPPort         string
 	KafkaBrokers     []string
-	KafkaGroupID     string
 	ScoreEventsTopic string
+	APIKey           string
 }
 
 func Load() *Config {
 	return &Config{
 		ServiceName:      getEnv("SERVICE_NAME", "event-service"),
 		GRPCPort:         getEnv("GRPC_PORT", "50052"),
+		HTTPPort:         getEnv("HTTP_PORT", "8082"),
 		KafkaBrokers:     splitAndTrim(getEnv("KAFKA_BROKERS", "localhost:9092")),
-		KafkaGroupID:     getEnv("KAFKA_GROUP_ID", "scorehub-group"),
 		ScoreEventsTopic: getEnv("SCORE_EVENTS_TOPIC", "score_events"),
+		APIKey:           getEnv("API_KEY", ""),
 	}
 }
 

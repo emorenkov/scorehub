@@ -1,16 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	logpkg "github.com/emorenkov/scorehub/pkg/common/logger"
+	"github.com/emorenkov/scorehub/pkg/event/app"
 	eventcfg "github.com/emorenkov/scorehub/pkg/event/config"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
 func main() {
@@ -21,25 +22,29 @@ func main() {
 	}
 	defer logpkg.Sync()
 
-	addr := ":" + cfg.GRPCPort
-	lis, err := net.Listen("tcp", addr)
+	application, err := app.New(cfg)
 	if err != nil {
-		logpkg.Log.Fatal("failed to listen", zap.Error(err), zap.String("addr", addr))
+		logpkg.Log.Fatal("failed to init app", zap.Error(err))
 	}
 
-	grpcServer := grpc.NewServer()
-	// TODO: register event service handler once implemented and protobuf generated
-
-	go func() {
-		logpkg.Log.Info("starting gRPC server", zap.String("addr", addr))
-		if err := grpcServer.Serve(lis); err != nil {
-			logpkg.Log.Fatal("gRPC server exited", zap.Error(err))
-		}
-	}()
+	errCh := application.Run()
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	<-sigs
-	logpkg.Log.Info("shutting down gRPC server")
-	grpcServer.GracefulStop()
+
+	select {
+	case sig := <-sigs:
+		logpkg.Log.Info("shutdown signal received", zap.String("signal", sig.String()))
+	case err = <-errCh:
+		if err != nil {
+			logpkg.Log.Error("service error", zap.Error(err))
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := application.Shutdown(ctx); err != nil {
+		logpkg.Log.Error("graceful shutdown failed", zap.Error(err))
+	}
 }

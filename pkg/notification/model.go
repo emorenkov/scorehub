@@ -16,3 +16,10 @@ type ScoreEvent struct {
 	NewScore int64 `json:"new_score"`
 	Change   int32 `json:"change"`
 }
+
+// NotificationMessage is emitted to Kafka for downstream consumers (e.g., email).
+type NotificationMessage struct {
+	UserID    int64     `json:"user_id"`
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"created_at"`
+}
