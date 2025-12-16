@@ -38,7 +38,10 @@ func New(cfg *config.UserConfig) (*App, error) {
 	repo := repository.NewGormRepository(dbConn)
 	svc := service.NewService(repo)
 
-	restServer := rest.NewServer(cfg, svc, logpkg.Log)
+	restServer, err := rest.NewServer(cfg, svc, logpkg.Log)
+	if err != nil {
+		return nil, fmt.Errorf("init rest server: %w", err)
+	}
 	grpcServer := grpc.NewServer()
 	userpb.RegisterUserServiceServer(grpcServer, grpcserver.NewServer(svc, logpkg.Log))
 	grpcAddr := ":" + cfg.GRPCPort

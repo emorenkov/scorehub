@@ -12,6 +12,7 @@ type Config struct {
 	KafkaBrokers     []string
 	ScoreEventsTopic string
 	APIKey           string
+	UserServiceAddr  string
 }
 
 func Load() *Config {
@@ -22,6 +23,7 @@ func Load() *Config {
 		KafkaBrokers:     splitAndTrim(getEnv("KAFKA_BROKERS", "localhost:9092")),
 		ScoreEventsTopic: getEnv("SCORE_EVENTS_TOPIC", "score_events"),
 		APIKey:           getEnv("API_KEY", ""),
+		UserServiceAddr:  getEnv("USER_SERVICE_ADDR", "localhost:50051"),
 	}
 }
 

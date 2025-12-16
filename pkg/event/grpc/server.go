@@ -15,11 +15,11 @@ import (
 
 type Server struct {
 	eventpb.UnimplementedEventServiceServer
-	svc service.Service
+	svc service.Event
 	log *zap.Logger
 }
 
-func NewServer(svc service.Service, log *zap.Logger) *Server {
+func NewServer(svc service.Event, log *zap.Logger) *Server {
 	return &Server{svc: svc, log: log}
 }
 

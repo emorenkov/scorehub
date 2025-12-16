@@ -11,6 +11,7 @@ func Init(serviceName string) error {
 	config := zap.NewProductionConfig()
 	config.EncoderConfig.TimeKey = "timestamp"
 	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	config.DisableStacktrace = true
 	config.InitialFields = map[string]interface{}{
 		"service": serviceName,
 	}

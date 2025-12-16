@@ -14,23 +14,23 @@ import (
 	"gorm.io/gorm"
 )
 
-type Service interface {
+type Notification interface {
 	Create(ctx context.Context, userID int64, message string) (*notification.Notification, error)
 	Get(ctx context.Context, id int64) (*notification.Notification, error)
 	List(ctx context.Context, userID int64) ([]notification.Notification, error)
 	ProcessScoreEvent(ctx context.Context, ev *notification.ScoreEvent) (*notification.Notification, error)
 }
 
-type service struct {
+type notificationService struct {
 	repo      repository.Repository
 	publisher producer.Publisher
 }
 
-func NewService(repo repository.Repository, publisher producer.Publisher) Service {
-	return &service{repo: repo, publisher: publisher}
+func NewNotification(repo repository.Repository, publisher producer.Publisher) Notification {
+	return &notificationService{repo: repo, publisher: publisher}
 }
 
-func (s *service) Create(ctx context.Context, userID int64, message string) (*notification.Notification, error) {
+func (s *notificationService) Create(ctx context.Context, userID int64, message string) (*notification.Notification, error) {
 	message = strings.TrimSpace(message)
 	if userID <= 0 || message == "" {
 		return nil, apperrors.NewStatusError(http.StatusBadRequest, "user_id and message are required")
@@ -52,7 +52,7 @@ func (s *service) Create(ctx context.Context, userID int64, message string) (*no
 	return n, nil
 }
 
-func (s *service) Get(ctx context.Context, id int64) (*notification.Notification, error) {
+func (s *notificationService) Get(ctx context.Context, id int64) (*notification.Notification, error) {
 	if id <= 0 {
 		return nil, apperrors.NewStatusError(http.StatusBadRequest, "invalid id")
 	}
@@ -66,7 +66,7 @@ func (s *service) Get(ctx context.Context, id int64) (*notification.Notification
 	return n, nil
 }
 
-func (s *service) List(ctx context.Context, userID int64) ([]notification.Notification, error) {
+func (s *notificationService) List(ctx context.Context, userID int64) ([]notification.Notification, error) {
 	notifications, err := s.repo.List(ctx, userID)
 	if err != nil {
 		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "list notifications")
@@ -74,7 +74,7 @@ func (s *service) List(ctx context.Context, userID int64) ([]notification.Notifi
 	return notifications, nil
 }
 
-func (s *service) ProcessScoreEvent(ctx context.Context, ev *notification.ScoreEvent) (*notification.Notification, error) {
+func (s *notificationService) ProcessScoreEvent(ctx context.Context, ev *notification.ScoreEvent) (*notification.Notification, error) {
 	if ev == nil {
 		return nil, apperrors.NewStatusError(http.StatusBadRequest, "event is required")
 	}

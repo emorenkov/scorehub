@@ -12,9 +12,11 @@ import (
 	"github.com/emorenkov/scorehub/pkg/event/repository"
 	"github.com/emorenkov/scorehub/pkg/event/rest"
 	"github.com/emorenkov/scorehub/pkg/event/service"
+	userpb "github.com/emorenkov/scorehub/pkg/user/models/proto"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type App struct {
@@ -23,6 +25,7 @@ type App struct {
 	grpcServer   *grpc.Server
 	grpcListener net.Listener
 	publisher    repository.Publisher
+	userConn     *grpc.ClientConn
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -30,7 +33,13 @@ func New(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init kafka publisher: %w", err)
 	}
-	svc := service.NewService(pub)
+
+	userConn, err := grpc.Dial(cfg.UserServiceAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("dial user service: %w", err)
+	}
+
+	svc := service.NewEvent(pub, userpb.NewUserServiceClient(userConn))
 
 	restServer := rest.NewServer(cfg, svc, logpkg.Log)
 
@@ -48,6 +57,7 @@ func New(cfg *config.Config) (*App, error) {
 		grpcServer:   grpcSrv,
 		grpcListener: lis,
 		publisher:    pub,
+		userConn:     userConn,
 	}, nil
 }
 
@@ -95,6 +105,13 @@ func (a *App) Shutdown(ctx context.Context) error {
 
 	g.Go(func() error {
 		return a.publisher.Close()
+	})
+
+	g.Go(func() error {
+		if a.userConn != nil {
+			return a.userConn.Close()
+		}
+		return nil
 	})
 
 	return g.Wait()

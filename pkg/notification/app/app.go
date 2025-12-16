@@ -25,7 +25,7 @@ type App struct {
 	restServer *rest.Server
 	consumer   *ckafka.Consumer
 	publisher  producer.Publisher
-	svc        service.Service
+	svc        service.Notification
 	cancel     context.CancelFunc
 }
 
@@ -40,7 +40,7 @@ func New(cfg *config.Config) (*App, error) {
 
 	repo := repository.NewGormRepository(dbConn)
 	pub := producer.NewKafkaPublisher(cfg.KafkaBrokers, cfg.NotificationsTopic)
-	svc := service.NewService(repo, pub)
+	svc := service.NewNotification(repo, pub)
 
 	restServer := rest.NewServer(cfg, svc, logpkg.Log)
 	consumer := ckafka.NewConsumerWithBrokers(cfg.KafkaBrokers, cfg.ScoreEventsTopic, cfg.KafkaGroupID)

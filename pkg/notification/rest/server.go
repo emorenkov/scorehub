@@ -13,12 +13,12 @@ import (
 
 type Server struct {
 	cfg *config.Config
-	svc service.Service
+	svc service.Notification
 	log *zap.Logger
 	e   *echo.Echo
 }
 
-func NewServer(cfg *config.Config, svc service.Service, log *zap.Logger) *Server {
+func NewServer(cfg *config.Config, svc service.Notification, log *zap.Logger) *Server {
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -31,7 +31,6 @@ func NewServer(cfg *config.Config, svc service.Service, log *zap.Logger) *Server
 	}
 
 	e.Use(echoMiddleware.Recover())
-	e.Use(echoMiddleware.Logger())
 
 	s.registerRoutes()
 	return s

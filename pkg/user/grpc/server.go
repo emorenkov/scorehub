@@ -18,11 +18,11 @@ import (
 // Server implements the generated gRPC interface and forwards calls to the domain service.
 type Server struct {
 	userpb.UnimplementedUserServiceServer
-	svc service.Service
+	svc service.User
 	log *zap.Logger
 }
 
-func NewServer(svc service.Service, log *zap.Logger) *Server {
+func NewServer(svc service.User, log *zap.Logger) *Server {
 	return &Server{svc: svc, log: log}
 }
 

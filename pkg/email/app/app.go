@@ -20,13 +20,13 @@ type App struct {
 	cfg        *config.Config
 	restServer *rest.Server
 	consumer   *ckafka.Consumer
-	svc        service.Service
+	svc        service.Email
 	cancel     context.CancelFunc
 }
 
 func New(cfg *config.Config) (*App, error) {
 	sender := repository.NewLoggerSender(logpkg.Log)
-	svc := service.NewService(sender)
+	svc := service.NewEmail(sender)
 	restServer := rest.NewServer(cfg, svc, logpkg.Log)
 	consumer := ckafka.NewConsumerWithBrokers(cfg.KafkaBrokers, cfg.NotificationsTopic, cfg.KafkaGroupID)
 

@@ -25,11 +25,20 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./db/initial.sql:/docker-entrypoint-initdb.d/initial.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   user-service:
     build:
       context: ..
-      dockerfile: deploy/user-service.Dockerfile
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_DIR: cmd/user
+        BINARY_NAME: user-service
     environment:
       SERVICE_NAME: user-service
       GRPC_PORT: "50051"
@@ -40,9 +49,12 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: scorehub
       KAFKA_BROKERS: kafka:29092
+      API_KEY: change-me
     depends_on:
-      - postgres
-      - kafka
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     ports:
       - "50051:50051"
       - "8080:8080"
@@ -50,7 +62,10 @@ services:
   event-service:
     build:
       context: ..
-      dockerfile: deploy/event-service.Dockerfile
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_DIR: cmd/event
+        BINARY_NAME: event-service
     environment:
       SERVICE_NAME: event-service
       GRPC_PORT: "50052"
@@ -61,6 +76,7 @@ services:
       POSTGRES_DB: scorehub
       KAFKA_BROKERS: kafka:29092
       SCORE_EVENTS_TOPIC: score_events
+      USER_SERVICE_ADDR: user-service:50051
     depends_on:
       - kafka
     ports:
@@ -69,7 +85,10 @@ services:
   notification-service:
     build:
       context: ..
-      dockerfile: deploy/notification-service.Dockerfile
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_DIR: cmd/notification
+        BINARY_NAME: notification-service
     environment:
       SERVICE_NAME: notification-service
       POSTGRES_HOST: postgres
@@ -83,19 +102,35 @@ services:
       NOTIFICATIONS_TOPIC: notifications
       USER_SERVICE_ADDR: user-service:50051
     depends_on:
-      - postgres
-      - kafka
-      - user-service
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      user-service:
+        condition: service_started
 
   email-service:
     build:
       context: ..
-      dockerfile: deploy/email-service.Dockerfile
+      dockerfile: deploy/service.Dockerfile
+      args:
+        SERVICE_DIR: cmd/email
+        BINARY_NAME: email-service
     environment:
       SERVICE_NAME: email-service
       KAFKA_BROKERS: kafka:29092
       KAFKA_GROUP_ID: scorehub-group
       NOTIFICATIONS_TOPIC: notifications
+    depends_on:
+      - kafka
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    ports:
+      - "8081:8080"
     depends_on:
       - kafka
 

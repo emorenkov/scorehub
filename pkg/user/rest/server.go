@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/emorenkov/scorehub/pkg/common/middleware"
@@ -16,14 +17,18 @@ import (
 
 type Server struct {
 	cfg     *config.UserConfig
-	svc     service.Service
+	svc     service.User
 	log     *zap.Logger
 	e       *echo.Echo
 	redis   *redis.Client
 	limiter *middleware.RateLimiter
 }
 
-func NewServer(cfg *config.UserConfig, svc service.Service, log *zap.Logger) *Server {
+func NewServer(cfg *config.UserConfig, svc service.User, log *zap.Logger) (*Server, error) {
+	if cfg.APIKey == "" {
+		return nil, errors.New("API_KEY must be set")
+	}
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
@@ -41,13 +46,12 @@ func NewServer(cfg *config.UserConfig, svc service.Service, log *zap.Logger) *Se
 	}
 
 	e.Use(echoMiddleware.Recover())
-	e.Use(echoMiddleware.Logger())
 	if limiter != nil {
 		e.Use(middleware.EchoRateLimit(limiter))
 	}
 
 	s.registerRoutes()
-	return s
+	return s, nil
 }
 
 func (s *Server) registerRoutes() {
@@ -80,11 +84,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func (s *Server) keyAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	if s.cfg.APIKey == "" {
-		return next
-	}
 	return func(c echo.Context) error {
-		if c.Request().Header.Get("X-API-Key") != s.cfg.APIKey {
+		apiKey := c.Request().Header.Get("X-API-Key")
+		if apiKey == "" || apiKey != s.cfg.APIKey {
 			return c.NoContent(http.StatusUnauthorized)
 		}
 		return next(c)

@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// Service describes the user business logic exposed to transports.
-type Service interface {
+// User describes the user business logic exposed to transports.
+type User interface {
 	Create(ctx context.Context, name, email string) (*models.User, error)
 	Get(ctx context.Context, id int64) (*models.User, error)
 	List(ctx context.Context) ([]models.User, error)
@@ -29,15 +29,15 @@ type Repository interface {
 	Delete(ctx context.Context, id int64) error
 }
 
-type service struct {
+type user struct {
 	repo Repository
 }
 
-func NewService(repo Repository) Service {
-	return &service{repo: repo}
+func NewService(repo Repository) User {
+	return &user{repo: repo}
 }
 
-func (s *service) Create(ctx context.Context, name, email string) (*models.User, error) {
+func (s *user) Create(ctx context.Context, name, email string) (*models.User, error) {
 	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(strings.ToLower(email))
 	if name == "" || email == "" {
@@ -57,7 +57,7 @@ func (s *service) Create(ctx context.Context, name, email string) (*models.User,
 	return u, nil
 }
 
-func (s *service) Get(ctx context.Context, id int64) (*models.User, error) {
+func (s *user) Get(ctx context.Context, id int64) (*models.User, error) {
 	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -68,7 +68,7 @@ func (s *service) Get(ctx context.Context, id int64) (*models.User, error) {
 	return u, nil
 }
 
-func (s *service) List(ctx context.Context) ([]models.User, error) {
+func (s *user) List(ctx context.Context) ([]models.User, error) {
 	users, err := s.repo.List(ctx)
 	if err != nil {
 		return nil, apperrors.WrapStatus(err, http.StatusInternalServerError, "list users")
@@ -76,7 +76,7 @@ func (s *service) List(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
-func (s *service) Update(ctx context.Context, id int64, name, email string) (*models.User, error) {
+func (s *user) Update(ctx context.Context, id int64, name, email string) (*models.User, error) {
 	u, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -108,7 +108,7 @@ func (s *service) Update(ctx context.Context, id int64, name, email string) (*mo
 	return u, nil
 }
 
-func (s *service) Delete(ctx context.Context, id int64) error {
+func (s *user) Delete(ctx context.Context, id int64) error {
 	err := s.repo.Delete(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
