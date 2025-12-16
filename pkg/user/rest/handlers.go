@@ -8,41 +8,49 @@ import (
 	apperrors "github.com/emorenkov/scorehub/pkg/common/errors"
 	"github.com/emorenkov/scorehub/pkg/common/models"
 	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
 )
 
 func (s *Server) createUser(c echo.Context) error {
 	var req createUserRequest
 	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		s.log.Error("createUser invalid json", zap.Error(err))
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid json"})
 	}
 	u, err := s.svc.Create(c.Request().Context(), req.Name, req.Email)
 	if err != nil {
+		s.log.Error("createUser failed", zap.Error(err), zap.String("email", req.Email))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	s.log.Info("createUser succeeded", zap.Int64("user_id", u.ID), zap.String("email", u.Email))
 	return c.JSON(http.StatusCreated, toDTO(u))
 }
 
 func (s *Server) getUser(c echo.Context) error {
 	id, ok := parseID(c)
 	if !ok {
+		s.log.Error("getUser invalid id")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 	u, err := s.svc.Get(c.Request().Context(), id)
 	if err != nil {
+		s.log.Error("getUser failed", zap.Error(err), zap.Int64("user_id", id))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	s.log.Info("getUser succeeded", zap.Int64("user_id", u.ID))
 	return c.JSON(http.StatusOK, toDTO(u))
 }
 
 func (s *Server) listUsers(c echo.Context) error {
 	users, err := s.svc.List(c.Request().Context())
 	if err != nil {
+		s.log.Error("listUsers failed", zap.Error(err))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
@@ -52,40 +60,48 @@ func (s *Server) listUsers(c echo.Context) error {
 	for i := range users {
 		resp = append(resp, toDTO(&users[i]))
 	}
+	s.log.Info("listUsers succeeded", zap.Int("count", len(resp)))
 	return c.JSON(http.StatusOK, resp)
 }
 
 func (s *Server) updateUser(c echo.Context) error {
 	id, ok := parseID(c)
 	if !ok {
+		s.log.Error("updateUser invalid id")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 	var req updateUserRequest
 	if err := json.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		s.log.Error("updateUser invalid json", zap.Error(err))
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid json"})
 	}
 
 	u, err := s.svc.Update(c.Request().Context(), id, req.Name, req.Email)
 	if err != nil {
+		s.log.Error("updateUser failed", zap.Error(err), zap.Int64("user_id", id))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	s.log.Info("updateUser succeeded", zap.Int64("user_id", u.ID))
 	return c.JSON(http.StatusOK, toDTO(u))
 }
 
 func (s *Server) deleteUser(c echo.Context) error {
 	id, ok := parseID(c)
 	if !ok {
+		s.log.Error("deleteUser invalid id")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 	if err := s.svc.Delete(c.Request().Context(), id); err != nil {
+		s.log.Error("deleteUser failed", zap.Error(err), zap.Int64("user_id", id))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	s.log.Info("deleteUser succeeded", zap.Int64("user_id", id))
 	return c.NoContent(http.StatusNoContent)
 }
 

@@ -8,6 +8,7 @@ import (
 	"github.com/emorenkov/scorehub/pkg/event"
 	eventpb "github.com/emorenkov/scorehub/pkg/event/proto"
 	"github.com/emorenkov/scorehub/pkg/event/service"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,10 +16,11 @@ import (
 type Server struct {
 	eventpb.UnimplementedEventServiceServer
 	svc service.Service
+	log *zap.Logger
 }
 
-func NewServer(svc service.Service) *Server {
-	return &Server{svc: svc}
+func NewServer(svc service.Service, log *zap.Logger) *Server {
+	return &Server{svc: svc, log: log}
 }
 
 func (s *Server) SendScoreEvent(ctx context.Context, req *eventpb.ScoreEventRequest) (*eventpb.EventAck, error) {
@@ -29,7 +31,13 @@ func (s *Server) SendScoreEvent(ctx context.Context, req *eventpb.ScoreEventRequ
 	}
 	ack, err := s.svc.Send(ctx, ev)
 	if err != nil {
+		if s.log != nil {
+			s.log.Error("grpc SendScoreEvent failed", zap.Error(err), zap.Int64("user_id", ev.UserID))
+		}
 		return nil, mapError(err)
+	}
+	if s.log != nil {
+		s.log.Info("grpc SendScoreEvent succeeded", zap.String("status", ack.Status), zap.Int64("user_id", ev.UserID))
 	}
 	return &eventpb.EventAck{Status: ack.Status}, nil
 }

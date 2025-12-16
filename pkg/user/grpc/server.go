@@ -10,6 +10,7 @@ import (
 	"github.com/emorenkov/scorehub/pkg/common/models"
 	userpb "github.com/emorenkov/scorehub/pkg/user/models/proto"
 	"github.com/emorenkov/scorehub/pkg/user/service"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -18,16 +19,23 @@ import (
 type Server struct {
 	userpb.UnimplementedUserServiceServer
 	svc service.Service
+	log *zap.Logger
 }
 
-func NewServer(svc service.Service) *Server {
-	return &Server{svc: svc}
+func NewServer(svc service.Service, log *zap.Logger) *Server {
+	return &Server{svc: svc, log: log}
 }
 
 func (s *Server) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.UserResponse, error) {
 	user, err := s.svc.Create(ctx, req.GetName(), req.GetEmail())
 	if err != nil {
+		if s.log != nil {
+			s.log.Error("grpc CreateUser failed", zap.Error(err), zap.String("email", req.GetEmail()))
+		}
 		return nil, status.Errorf(codes.InvalidArgument, "create user: %v", err)
+	}
+	if s.log != nil {
+		s.log.Info("grpc CreateUser succeeded", zap.Int64("user_id", user.ID))
 	}
 	return &userpb.UserResponse{User: toProtoUser(user)}, nil
 }
@@ -35,7 +43,13 @@ func (s *Server) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) 
 func (s *Server) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*userpb.UserResponse, error) {
 	user, err := s.svc.Get(ctx, req.GetId())
 	if err != nil {
+		if s.log != nil {
+			s.log.Error("grpc GetUser failed", zap.Error(err), zap.Int64("user_id", req.GetId()))
+		}
 		return nil, mapError(err)
+	}
+	if s.log != nil {
+		s.log.Info("grpc GetUser succeeded", zap.Int64("user_id", user.ID))
 	}
 	return &userpb.UserResponse{User: toProtoUser(user)}, nil
 }
@@ -43,14 +57,26 @@ func (s *Server) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*user
 func (s *Server) UpdateUser(ctx context.Context, req *userpb.UpdateUserRequest) (*userpb.UserResponse, error) {
 	user, err := s.svc.Update(ctx, req.GetId(), req.GetName(), req.GetEmail())
 	if err != nil {
+		if s.log != nil {
+			s.log.Error("grpc UpdateUser failed", zap.Error(err), zap.Int64("user_id", req.GetId()))
+		}
 		return nil, mapError(err)
+	}
+	if s.log != nil {
+		s.log.Info("grpc UpdateUser succeeded", zap.Int64("user_id", user.ID))
 	}
 	return &userpb.UserResponse{User: toProtoUser(user)}, nil
 }
 
 func (s *Server) DeleteUser(ctx context.Context, req *userpb.DeleteUserRequest) (*userpb.Empty, error) {
 	if err := s.svc.Delete(ctx, req.GetId()); err != nil {
+		if s.log != nil {
+			s.log.Error("grpc DeleteUser failed", zap.Error(err), zap.Int64("user_id", req.GetId()))
+		}
 		return nil, mapError(err)
+	}
+	if s.log != nil {
+		s.log.Info("grpc DeleteUser succeeded", zap.Int64("user_id", req.GetId()))
 	}
 	return &userpb.Empty{}, nil
 }
@@ -58,6 +84,9 @@ func (s *Server) DeleteUser(ctx context.Context, req *userpb.DeleteUserRequest) 
 func (s *Server) ListUsers(ctx context.Context, _ *userpb.Empty) (*userpb.ListUsersResponse, error) {
 	users, err := s.svc.List(ctx)
 	if err != nil {
+		if s.log != nil {
+			s.log.Error("grpc ListUsers failed", zap.Error(err))
+		}
 		return nil, status.Errorf(codes.Internal, "list users: %v", err)
 	}
 	resp := &userpb.ListUsersResponse{
@@ -65,6 +94,9 @@ func (s *Server) ListUsers(ctx context.Context, _ *userpb.Empty) (*userpb.ListUs
 	}
 	for i := range users {
 		resp.Users = append(resp.Users, toProtoUser(&users[i]))
+	}
+	if s.log != nil {
+		s.log.Info("grpc ListUsers succeeded", zap.Int("count", len(resp.Users)))
 	}
 	return resp, nil
 }

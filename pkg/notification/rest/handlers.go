@@ -7,6 +7,7 @@ import (
 	apperrors "github.com/emorenkov/scorehub/pkg/common/errors"
 	"github.com/emorenkov/scorehub/pkg/notification"
 	"github.com/labstack/echo/v4"
+	"go.uber.org/zap"
 )
 
 type createNotificationRequest struct {
@@ -24,30 +25,36 @@ type notificationDTO struct {
 func (s *Server) createNotification(c echo.Context) error {
 	var req createNotificationRequest
 	if err := c.Bind(&req); err != nil {
+		s.log.Error("createNotification invalid json", zap.Error(err))
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid json"})
 	}
 	n, err := s.svc.Create(c.Request().Context(), req.UserID, req.Message)
 	if err != nil {
+		s.log.Error("createNotification failed", zap.Error(err), zap.Int64("user_id", req.UserID))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	s.log.Info("createNotification succeeded", zap.Int64("notification_id", n.ID), zap.Int64("user_id", n.UserID))
 	return c.JSON(http.StatusCreated, toDTO(n))
 }
 
 func (s *Server) getNotification(c echo.Context) error {
 	id, ok := parseID(c)
 	if !ok {
+		s.log.Error("getNotification invalid id")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
 	}
 	n, err := s.svc.Get(c.Request().Context(), id)
 	if err != nil {
+		s.log.Error("getNotification failed", zap.Error(err), zap.Int64("notification_id", id))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	s.log.Info("getNotification succeeded", zap.Int64("notification_id", n.ID))
 	return c.JSON(http.StatusOK, toDTO(n))
 }
 
@@ -57,11 +64,13 @@ func (s *Server) listNotifications(c echo.Context) error {
 		if val, err := strconv.ParseInt(userIDStr, 10, 64); err == nil {
 			userID = val
 		} else {
+			s.log.Error("listNotifications invalid user_id", zap.Error(err))
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid user_id"})
 		}
 	}
 	notifications, err := s.svc.List(c.Request().Context(), userID)
 	if err != nil {
+		s.log.Error("listNotifications failed", zap.Error(err), zap.Int64("user_id", userID))
 		if handled := writeServiceError(c, err); handled {
 			return nil
 		}
@@ -71,6 +80,7 @@ func (s *Server) listNotifications(c echo.Context) error {
 	for i := range notifications {
 		resp = append(resp, toDTO(&notifications[i]))
 	}
+	s.log.Info("listNotifications succeeded", zap.Int("count", len(resp)), zap.Int64("user_id", userID))
 	return c.JSON(http.StatusOK, resp)
 }
 

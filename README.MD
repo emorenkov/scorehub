@@ -35,6 +35,7 @@ Handles user management and exposes CRUD operations.
 Simulates external credit events and publishes them to Kafka.
 
 - Publishes JSON messages to topic `score_events`
+- Optional REST auth via header `X-API-Key` (set `API_KEY` env var on the service); omit the header if auth is disabled
 - Example payload:
   ```json
   {
@@ -198,6 +199,10 @@ GRPC_PORT=9090
 DB_DSN=postgres://scorehub:password@postgres:5432/scorehub?sslmode=disable
 LOG_LEVEL=debug
 ```
+
+`event-service` REST auth:
+- Set `API_KEY=<secret>` to require clients to send `X-API-Key` with that value on `/api/v1/score-events`.
+- Leave `API_KEY` unset/empty to allow requests without the header (useful for local/dev).
 
 ---
 

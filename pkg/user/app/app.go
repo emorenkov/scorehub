@@ -40,7 +40,7 @@ func New(cfg *config.UserConfig) (*App, error) {
 
 	restServer := rest.NewServer(cfg, svc, logpkg.Log)
 	grpcServer := grpc.NewServer()
-	userpb.RegisterUserServiceServer(grpcServer, grpcserver.NewServer(svc))
+	userpb.RegisterUserServiceServer(grpcServer, grpcserver.NewServer(svc, logpkg.Log))
 	grpcAddr := ":" + cfg.GRPCPort
 	lis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {

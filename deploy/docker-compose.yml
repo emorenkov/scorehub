@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   kafka:
     image: confluentinc/cp-kafka:7.5.1
@@ -15,7 +13,7 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
   postgres:
     image: postgres:15

@@ -26,13 +26,16 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
-	pub := repository.NewKafkaPublisher(cfg.KafkaBrokers, cfg.ScoreEventsTopic)
+	pub, err := repository.NewKafkaPublisher(cfg.KafkaBrokers, cfg.ScoreEventsTopic)
+	if err != nil {
+		return nil, fmt.Errorf("init kafka publisher: %w", err)
+	}
 	svc := service.NewService(pub)
 
 	restServer := rest.NewServer(cfg, svc, logpkg.Log)
 
 	grpcSrv := grpc.NewServer()
-	eventpb.RegisterEventServiceServer(grpcSrv, grpcserver.NewServer(svc))
+	eventpb.RegisterEventServiceServer(grpcSrv, grpcserver.NewServer(svc, logpkg.Log))
 	grpcAddr := ":" + cfg.GRPCPort
 	lis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {
