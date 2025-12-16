@@ -1,5 +1,22 @@
-CREATE ROLE scorehub WITH LOGIN PASSWORD '1';
-CREATE DATABASE scorehub OWNER scorehub;
+-- Create application role if it does not exist
+DO
+$$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'scorehub') THEN
+        CREATE ROLE scorehub WITH LOGIN PASSWORD '1';
+    END IF;
+END
+$$;
+
+-- Create database if it does not exist (harmless if POSTGRES_DB already created it)
+DO
+$$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'scorehub') THEN
+        CREATE DATABASE scorehub OWNER scorehub;
+    END IF;
+END
+$$;
 
 GRANT ALL PRIVILEGES ON DATABASE scorehub TO scorehub;
 

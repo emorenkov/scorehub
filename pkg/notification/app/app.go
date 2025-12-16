@@ -34,9 +34,6 @@ func New(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("init db: %w", err)
 	}
-	if err := dbConn.AutoMigrate(&notification.Notification{}); err != nil {
-		return nil, fmt.Errorf("migrate db: %w", err)
-	}
 
 	repo := repository.NewGormRepository(dbConn)
 	pub := producer.NewKafkaPublisher(cfg.KafkaBrokers, cfg.NotificationsTopic)
